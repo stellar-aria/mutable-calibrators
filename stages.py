@@ -66,17 +66,10 @@ class Stages(MIModule):
         super().calibrate_adc_channel(channel, 2)
         time.sleep(SLEEP_TIME)
 
-    def calibrate(self):
-        print("Beginning full calibration")
+    def calibrate_dac(self):
         dac_data = []
         for i in range(NUM_CHANNELS):
             dac_data[i] = self.calibrate_dac_channel(i)
-
-        print("Patch all channels to their corresponding TIME/LEVEL input. Press enter when ready.")
-        input()
-        for i in range(NUM_CHANNELS):
-            self.calibrate_adc_channel(i)
-        print("Calibration complete!")
 
         print(
             "For more accurate DAC output, insert the below code before the return of Settings::Init() and rerun ADC calibration"
@@ -89,23 +82,41 @@ class Stages(MIModule):
                 f"persistent_data_.channel_calibration_data[{i}].dac_offset = {offset:.4f};"
             )
 
+    def calibrate_adc(self):
+        print(
+            "Patch all channels to their corresponding TIME/LEVEL input. Press enter when ready."
+        )
+        input()
+        for i in range(NUM_CHANNELS):
+            self.calibrate_adc_channel(i)
+
+    def calibrate(self):
+        print("Beginning full calibration")
+        self.calibrate_dac()
+
+        self.calibrate_adc()
+        print("Calibration complete!")
+
     def get_state(self):
-        pots = [self.read_pot(i) for i in range(NUM_CHANNELS)]
-        buttons = [self.read_button(i) for i in range(NUM_CHANNELS)]
-        sliders = [self.read_slider(i) for i in range(NUM_CHANNELS)]
-        normals = [self.read_normalization(i) for i in range(NUM_CHANNELS)]
-        gates = [self.read_gate(i) for i in range(NUM_CHANNELS)]
-        cvs = [self.read_cv(i) for i in range(NUM_CHANNELS)]
+        pots = ["Pots:"] + [self.read_pot(i) for i in range(NUM_CHANNELS)]
+        buttons = ["Buttons:"] + [self.read_button(i) for i in range(NUM_CHANNELS)]
+        sliders = ["Sliders:"] + [self.read_slider(i) for i in range(NUM_CHANNELS)]
+        normals = ["Normals:"] + [
+            self.read_normalization(i) for i in range(NUM_CHANNELS)
+        ]
+        gates = ["Gates:"] + [self.read_gate(i) for i in range(NUM_CHANNELS)]
+        cvs = ["CVs:"] + [self.read_cv(i) for i in range(NUM_CHANNELS)]
         return [pots, buttons, sliders, normals, gates, cvs]
+
 
 def display(stages):
     kb = KBHit()
     print("Press ESC or 'q' to exit")
-    channels = [f"Channel {c}" for c in range(NUM_CHANNELS)]
+    channels = ["Channels"] + [f"Channel {c}" for c in range(NUM_CHANNELS)]
     while True:
         if kb.kbhit():
             c = kb.getch()
-            if ord(c) == 27 or c == 'q': # ESC
+            if ord(c) == 27 or c == "q":  # ESC
                 break
 
         state = [channels] + stages.get_state()
@@ -115,6 +126,7 @@ def display(stages):
 
         for line in output:
             sys.stdout.write(line + "\n")  # reprint the lines
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
@@ -146,16 +158,12 @@ if __name__ == "__main__":
                 stages.calibrate()
 
             case "a" | "adc":
-                print("Patch all channels to their corresponding TIME/LEVEL input. Press enter when ready.")
-                input()
-                for i in range(NUM_CHANNELS):
-                    stages.calibrate_adc_channel(i)
+                stages.calibrate_adc()
 
             case "d" | "dac":
-                for i in range(NUM_CHANNELS):
-                    stages.calibrate_dac_channel(i)
+                stages.calibrate_dac()
 
-            case 'g' | "generate":
+            case "g" | "generate":
                 stages.generate_test_signals()
 
             case "r" | "read":
