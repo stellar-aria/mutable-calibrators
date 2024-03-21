@@ -33,17 +33,14 @@ class ClockInput(IntEnum):
 class Marbles(MIModule):
     def calibrate_dac_channel(self, channel: OutputChannel) -> Tuple[float, float]:
         super().calibrate_dac_channel(channel.value, 0)
-        one_volt_reading = input(
-            f"Enter value on voltmeter for {channel.__name__} output: "
+        one_volt_reading = float(
+            input(f"Enter value on voltmeter for {channel.__name__} output: ")
         )
 
         super().calibrate_dac_channel(channel.value, 1)
-        three_volt_reading = input(
-            f"Enter value on voltmeter for {channel.__name__} output: "
+        three_volt_reading = float(
+            input(f"Enter value on voltmeter for {channel.__name__} output: ")
         )
-
-        scale = {}
-        offset = {}
 
         code_1 = 26555
         code_3 = 14129
@@ -56,7 +53,7 @@ class Marbles(MIModule):
     def calibrate_adc_channel(self, channel: InputChannel):
         # SETUP, 1V RATE, 3V RATE, 1V SPREAD, 3V SPREAD
         for step in range(5):
-            super().calibrate_adc_channel(channel, step)
+            super().calibrate_adc_channel(channel.value, step)
 
     def calibrate_dac(self):
         data = []
