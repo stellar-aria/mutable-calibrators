@@ -27,7 +27,7 @@ class TestingRequest:
         self.argument = argument
 
     # 1 byte output
-    def packed(self) -> int:
+    def packed(self) -> bytes:
         output = self.command.value << COMMAND_POS
         output |= self.argument & ARGUMENT_MASK
 
