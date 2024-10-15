@@ -1,9 +1,11 @@
-import sys
-import time
-from typing import Tuple
-from factory_test import Command
-from kbhit import KBHit
+#!/bin/python
+
 from mi_module import MIModule
+from kbhit import KBHit
+from factory_test import Command
+from typing import Tuple
+import time
+import sys
 
 NUM_CHANNELS = 6
 DEFAULT_SCALE = -32263
@@ -40,7 +42,8 @@ class Stages(MIModule):
             (neg_one * DEFAULT_SCALE) / (neg_one_reading / 8)
         ) * neg_one + DEFAULT_OFFSET
         pos_two_point_five_dac_code = (
-            (pos_two_point_five * DEFAULT_SCALE) / (pos_two_point_five_reading / 8)
+            (pos_two_point_five * DEFAULT_SCALE) /
+            (pos_two_point_five_reading / 8)
         ) * pos_two_point_five + DEFAULT_OFFSET
 
         scale = (pos_two_point_five_dac_code - neg_one_dac_code) / (
@@ -76,10 +79,12 @@ class Stages(MIModule):
         )
         for scale, offset in dac_data:
             print(
-                f"persistent_data_.channel_calibration_data[{i}].dac_scale = {scale:.4f};"
+                f"persistent_data_.channel_calibration_data[{
+                    i}].dac_scale = {scale:.4f};"
             )
             print(
-                f"persistent_data_.channel_calibration_data[{i}].dac_offset = {offset:.4f};"
+                f"persistent_data_.channel_calibration_data[{
+                    i}].dac_offset = {offset:.4f};"
             )
 
     def calibrate_adc(self):
@@ -99,8 +104,10 @@ class Stages(MIModule):
 
     def get_state(self):
         pots = ["Pots:"] + [self.read_pot(i) for i in range(NUM_CHANNELS)]
-        buttons = ["Buttons:"] + [self.read_button(i) for i in range(NUM_CHANNELS)]
-        sliders = ["Sliders:"] + [self.read_slider(i) for i in range(NUM_CHANNELS)]
+        buttons = ["Buttons:"] + \
+            [self.read_button(i) for i in range(NUM_CHANNELS)]
+        sliders = ["Sliders:"] + \
+            [self.read_slider(i) for i in range(NUM_CHANNELS)]
         normals = ["Normals:"] + [
             self.read_normalization(i) for i in range(NUM_CHANNELS)
         ]
@@ -122,7 +129,8 @@ def display(stages):
         state = [channels] + stages.get_state()
         output = ["\t".join(data) for data in state]
         for line in output:
-            sys.stdout.write("\x1b[1A\x1b[2K")  # move up cursor and delete whole line
+            # move up cursor and delete whole line
+            sys.stdout.write("\x1b[1A\x1b[2K")
 
         for line in output:
             sys.stdout.write(line + "\n")  # reprint the lines
