@@ -26,14 +26,15 @@ class MIModule:
         self.port.send(Command.READ_NORMALIZATION, channel)
         return bool(self.port.read())
 
-    def __calibrate(self, command: Command, channel: int, step: int):
+    def __calibrate(self, command: Command, channel: int, step: int) -> int:
         self.port.send(command, (channel << 2) | step)
+        return self.port.read()
 
     def calibrate_adc_channel(self, channel: int, step: int):
         self.__calibrate(Command.CALIBRATE, channel, step)
 
-    def calibrate_dac_channel(self, channel: int, step: int):
-        self.__calibrate(Command.FORCE_DAC_CODE, channel, step)
+    def calibrate_dac_channel(self, channel: int, step: int) -> int:
+        return self.__calibrate(Command.FORCE_DAC_CODE, channel, step)
 
     def generate_test_signals(self, output: bool = True):
         self.port.send(Command.GENERATE_TEST_SIGNALS, int(output))
