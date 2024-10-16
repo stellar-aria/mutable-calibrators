@@ -1,5 +1,6 @@
 from serial import Serial
 from enum import Enum
+from time import sleep
 import struct
 
 # top 3 bits are command, bottom 5 are argument
@@ -26,10 +27,11 @@ class TestingRequest:
         self.argument = argument
 
     # 1 byte output
-    def packed(self) -> int:
+    def packed(self) -> bytes:
         output = self.command.value << COMMAND_POS
         output |= self.argument & ARGUMENT_MASK
-        return output
+
+        return output.to_bytes(1)
 
 
 class CalibrationData:
@@ -46,20 +48,23 @@ class CalibrationData:
 
 
 class DebugPort:
-
     def __init__(self, port: str):
-        self.port = Serial(port)
+        self.port = Serial(port, timeout=5)
 
     def send(self, command: Command, argument: int):
         self.port.write(TestingRequest(command, argument).packed())
 
     def read(self) -> int:
-        return self.port.read()[0]
+        result = self.port.read()
+        if (len(result) > 0):
+            return result[0]
+        else:
+            raise IOError("No answer from device.")
 
     def write_calibration_data(self, scale: float, offset: float):
         for byte in CalibrationData(scale, offset).packed():
             # top nibble
-            self.send(TestingRequest(Command.WRITE_CALIBRATION_DATA_NIBBLE, byte >> 4))
-
+            self.send(Command.WRITE_CALIBRATION_DATA_NIBBLE, byte >> 4)
+            sleep(0.1)
             # bottom nibble
-            self.send(TestingRequest(Command.WRITE_CALIBRATION_DATA_NIBBLE, byte & 0xF))
+            self.send(Command.WRITE_CALIBRATION_DATA_NIBBLE, byte & 0xF)
