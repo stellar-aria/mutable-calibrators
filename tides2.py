@@ -8,10 +8,10 @@ from mi_module import MIModule
 
 
 class OutputChannel(Enum):
-    O_1 = 0
-    O_2 = 1
-    O_3 = 2
-    O_4 = 3
+    OUT_1 = 0
+    OUT_2 = 1
+    OUT_3 = 2
+    OUT_4 = 3
 
 
 class Tides2(MIModule):
@@ -55,8 +55,8 @@ class Tides2(MIModule):
         return (scale, offset)
 
     def calibrate_adc_channel(self):
-        # SETUP, 1V RATE, 3V RATE, 1V SPREAD, 3V SPREAD
-        for step in range(5):
+        #Steps: force -2V, force 4V, store settings
+        for step in range(3):
             super().calibrate_adc_channel(0, step)
             sleep(0.5)
 
@@ -88,16 +88,14 @@ class Tides2(MIModule):
             exit(-1)
 
     def calibrate_adc(self):
-        print("ADC calibration unsupported... yet!")
-        return
         # Begin signal output
         try:
             input("Press ENTER to start ADC calibration.")
             self.generate_test_signals()
 
-            print("All outputs should have orange LEDs right now. Please patch "
-                  "cables from any output to RATE and SPREAD input "
-                  "and then press ENTER")
+            print("All outputs should have orange LEDs right now. Please "
+                  "patch a cable from OUT_1 to V/OCT input and leave "
+                  "all other CV inputs unpatched - then press ENTER")
             input()
             self.calibrate_adc_channel()
         except IOError:
