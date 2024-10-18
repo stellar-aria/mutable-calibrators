@@ -55,7 +55,7 @@ class Tides2(MIModule):
         return (scale, offset)
 
     def calibrate_adc_channel(self):
-        #Steps: force -2V, force 4V, store settings
+        # Steps: force -2V, force 4V, store settings
         for step in range(3):
             super().calibrate_adc_channel(0, step)
             sleep(0.5)
@@ -75,8 +75,9 @@ class Tides2(MIModule):
                 "If any output does not read 1V right now, reflash and "
                 "rerun the calibration.")
             print(
-                "For more accurate ADC calibration results, you can instead copy "
-                "the below code into Settings::Init() and rerun ADC calibration"
+                "For more accurate ADC calibration results, you can copy "
+                "the below code into Settings::Init() and rerun ADC "
+                "calibration"
             )
             for i, (scale, offset) in enumerate(data):
                 print(
@@ -94,7 +95,7 @@ class Tides2(MIModule):
             self.generate_test_signals()
 
             print("All outputs should have orange LEDs right now. Please "
-                  "patch a cable from OUT_1 to V/OCT input and leave "
+                  "patch a cable from OUT_1 to V/oct input and leave "
                   "all other CV inputs unpatched - then press ENTER")
             input()
             self.calibrate_adc_channel()

@@ -2,11 +2,12 @@
 
 Scripts and associated utility classes for automating calibrating various Mutable Instruments Modules including Marbles and Stages (more to come as I build them or are contributed).
 
-Right now **only Marbles script** was troubleshooted and tested.
+Right now **only Marbles and Tides (2018 version) script** was troubleshooted and tested.
 
 ## Usage
 
 ### Marbles
+
 Marbles ***must*** be *freshly flashed* for the factory UART
 port to remain opened. This means, that it has to be the exact first
 start of the unit after flashing it using ST-Link or other
@@ -20,6 +21,7 @@ DEVICE is an optional parameter for specifying the serial interface from command
 After running the marbles.py script you will be asked which calibration to perform.
 
 #### DAC calibration
+
 This consists of reading the values on all outputs (Y, X1, X2, X3) using a
 voltmeter with good resolution. Calculated scale and offset values for all
 outputs will be sent to the module, but you *could* get even more accuracy
@@ -27,11 +29,40 @@ by recompiling the firmware with pre-calculated calibration values, as
 given at the end of the script.
 
 #### ADC calibration
+
 This consists of connecting any output to RATE and to SPEED input, then
 waiting for a moment. The accuracy of this calibration is only as good, as 
 the calibration of DAC. 
 
-#### Tips
+### Tides (2018 version)
+
+Marbles ***must*** be *freshly flashed* for the factory UART
+port to remain opened. This means, that it has to be the exact first
+start of the unit after flashing it using ST-Link or other
+programmer.
+
+Syntax:
+python tides2.py \[DEVICE\]
+
+DEVICE is an optional parameter for specifying the serial interface from command line.
+
+After running the tides2.py script you will be asked which calibration to perform.
+
+#### DAC calibration
+
+This consists of reading the values on all outputs (OUT1, OUT2, OUT3, OUT4) using a
+voltmeter with good resolution. Calculated scale and offset values for all
+outputs will be sent to the module, but you *could* get even more accuracy
+by recompiling the firmware with pre-calculated calibration values, as
+given at the end of the script.
+
+#### ADC calibration
+
+This consists of connecting **the first** output to the V/oct input and   
+waiting for a moment. The accuracy of this calibration is only as good, as 
+the calibration of DAC. 
+
+### Tips
 
 * Remember to connect GND to serial interface, not only RX/TX.
 * To achieve the *freshly flashed* state a little easier you can edit 
@@ -42,8 +73,10 @@ and connect the serial interface.
 
 
 ## Requirements:
+
 - Python: ^3.12
 - pyserial: `pip install pyserial`
 
 ## License:
+
 GPLv3 unless otherwise noted
