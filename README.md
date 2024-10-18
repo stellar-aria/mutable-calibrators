@@ -36,7 +36,7 @@ the calibration of DAC.
 
 ### Tides (2018 version)
 
-Marbles ***must*** be *freshly flashed* for the factory UART
+Tides ***must*** be *freshly flashed* for the factory UART
 port to remain opened. This means, that it has to be the exact first
 start of the unit after flashing it using ST-Link or other
 programmer.
@@ -58,9 +58,9 @@ given at the end of the script.
 
 #### ADC calibration
 
-This consists of connecting **the first** output to the V/oct input and   
-waiting for a moment. The accuracy of this calibration is only as good, as 
-the calibration of DAC. 
+This consists of connecting **the first** output to the *V/oct input*, leaving
+all other inputs unpatched and waiting for a moment. The accuracy of this 
+calibration is only as good, as the calibration of DAC. 
 
 ### Tips
 
