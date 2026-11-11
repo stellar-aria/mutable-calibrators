@@ -1,82 +1,102 @@
 # Mutable Calibrators
 
-Scripts and associated utility classes for automating calibrating various Mutable Instruments Modules including Marbles and Stages (more to come as I build them or are contributed).
+Scripts that calibrate Mutable Instruments modules through their hidden
+factory-test UART port (see `stmlib`-based firmware in
+[mutable-eurorack](https://github.com/pichenettes/eurorack)).
 
-Right now **only Marbles and Tides (2018 version) script** was troubleshooted and tested.
+| Script        | Module        | What gets calibrated                                   | Reference needed                 |
+|---------------|---------------|--------------------------------------------------------|----------------------------------|
+| `marbles.py`  | Marbles       | DAC (Y, X1–X3), T RATE / X SPREAD inputs               | Voltmeter                        |
+| `tides2.py`   | Tides (2018)  | DAC (OUT 1–4), V/OCT input                             | Voltmeter                        |
+| `stages.py`   | Stages        | DAC (6 outputs), 6 TIME/LEVEL inputs; live input view  | Voltmeter                        |
+| `plaits.py`   | Plaits        | V/OCT input                                            | Precise 1 V and 3 V source       |
+| `clouds.py`   | Clouds        | V/OCT input                                            | Precise 1 V and 3 V source       |
+| `elements.py` | Elements      | V/OCT input                                            | Precise 1 V and 3 V source       |
+| `rings.py`    | Rings         | V/OCT input, V/OCT normalization threshold             | Precise 1 V and 3 V source       |
+| `warps.py`    | Warps         | LEVEL 1 CV (V/OCT) input, LEVEL 1/2 normalization      | Precise 1 V and 3 V source       |
+| `beads.py`    | Beads         | V/OCT and DENSITY inputs                               | Precise 1 V and 3 V source       |
+
+Marbles and Tides (2018) have been tested on hardware. The other scripts
+follow the firmware source and pass the hardware-free tests, but have not
+been run against a real module yet. Reports are welcome.
+
+Other modules in the repository (Braids, Branches, Frames, Grids, Peaks,
+Streams, Tides (2015), Yarns, ...) have no factory-test UART. Calibrate them
+from the front panel as described in their manuals.
 
 ## Usage
 
-### Marbles
+```
+python <module>.py [DEVICE]
+```
 
-Marbles ***must*** be *freshly flashed* for the factory UART
-port to remain opened. This means, that it has to be the exact first
-start of the unit after flashing it using ST-Link or other
-programmer.
+`DEVICE` is the serial interface (e.g. `/dev/ttyUSB0`, `COM3`); you are
+prompted for it if omitted. A menu then offers the calibrations the module
+supports.
 
-Syntax:
-python marbles.py \[DEVICE\]
+### The module must be freshly flashed
 
-DEVICE is an optional parameter for specifying the serial interface from command line.
+The factory-test port only listens on a module's **first power-up after
+flashing**, before any settings were saved. Storing a calibration saves
+settings, so do every calibration you need (e.g. DAC *and* inputs) in one
+session. Otherwise you have to reflash.
 
-After running the marbles.py script you will be asked which calibration to perform.
+To make this easier, edit `stmlib/makefile.inc` and remove `-c "reset run"`
+from `POSTLUDE`. The module then stays in reset after flashing, so you can
+power it down, disconnect the programmer and connect the serial adapter.
 
-#### DAC calibration
+### Wiring
 
-This consists of reading the values on all outputs (Y, X1, X2, X3) using a
-voltmeter with good resolution. Calculated scale and offset values for all
-outputs will be sent to the module, but you *could* get even more accuracy
-by recompiling the firmware with pre-calculated calibration values, as
-given at the end of the script.
+Connect RX, TX **and GND** of a 3.3 V USB-serial adapter to the module's
+debug UART (9600 baud, 8N1). On Stages, the factory-test UART is the left
+chaining link, not a separate header.
 
-#### ADC calibration
+### DAC (output) calibration: Marbles, Tides (2018), Stages
 
-This consists of connecting any output to RATE and to SPEED input, then
-waiting for a moment. The accuracy of this calibration is only as good, as 
-the calibration of DAC. 
+For each output the module drives two fixed DAC codes (about −2 V and +4 V);
+type in what the voltmeter reads. The script computes scale and offset,
+stores them on the module and drives the output to +1 V. If the output then
+does not read +1 V, answer `n` to measure that output again. At the end the
+script prints the values as C code you can bake into `Settings::Init()`.
 
-### Tides (2018 version)
+### Input calibration
 
-Tides ***must*** be *freshly flashed* for the factory UART
-port to remain opened. This means, that it has to be the exact first
-start of the unit after flashing it using ST-Link or other
-programmer.
+* **Marbles, Tides (2018), Stages** use their own (DAC-calibrated) outputs as
+  the reference. Run the DAC calibration first, then patch as prompted:
+  * Marbles: any output to T RATE and any output to X SPREAD.
+  * Tides (2018): OUT 1 to V/OCT.
+  * Stages: each output to its own channel's TIME/LEVEL input.
+* **Plaits, Clouds, Elements, Rings, Warps, Beads** need an external
+  reference: patch exactly 1 V, then exactly 3 V, when prompted. Check the
+  source with a voltmeter. Leave every other input unpatched, because the
+  zero offsets of the other CV inputs are captured at the same time. Rings
+  and Warps then calibrate their normalization-probe threshold with the
+  input unpatched. Beads also calibrates DENSITY CV the same way.
 
-Syntax:
-python tides2.py \[DEVICE\]
+Most modules don't report whether an input calibration succeeded over the
+port. If a reading is out of range, the module shows its error LED pattern
+instead of saving. Beads reports each step and the script stops at the
+first failure.
 
-DEVICE is an optional parameter for specifying the serial interface from command line.
+## Development
 
-After running the tides2.py script you will be asked which calibration to perform.
+```
+python -m unittest test_calibrators
+```
 
-#### DAC calibration
+The tests emulate the firmware side of the protocol (reply bytes, nibble
+accumulator, scale/offset decoding), so they need no hardware.
 
-This consists of reading the values on all outputs (OUT1, OUT2, OUT3, OUT4) using a
-voltmeter with good resolution. Calculated scale and offset values for all
-outputs will be sent to the module, but you *could* get even more accuracy
-by recompiling the firmware with pre-calculated calibration values, as
-given at the end of the script.
+Layout: `factory_test.py` is the wire protocol, `mi_module.py` holds the
+module base classes and the DAC maths, and `cli.py` has the shared
+interactive flows. Each `<module>.py` holds that firmware's command table
+(opcode numbers differ between modules) and its calibration steps.
 
-#### ADC calibration
+## Requirements
 
-This consists of connecting **the first** output to the *V/oct input*, leaving
-all other inputs unpatched and waiting for a moment. The accuracy of this 
-calibration is only as good, as the calibration of DAC. 
+- Python 3.10+
+- pyserial: `pip install -r requirements.txt`
 
-### Tips
-
-* Remember to connect GND to serial interface, not only RX/TX.
-* To achieve the *freshly flashed* state a little easier you can edit 
-the `stmlib/makefile.inc` file and change the `POSTLUDE` variable by 
-*removing* `-c "reset run"`. This will hold the module in hardware reset 
-after flashing, allowing you to power it down, disconnect the programmer 
-and connect the serial interface.
-
-
-## Requirements:
-
-- Python: ^3.12
-- pyserial: `pip install pyserial`
-
-## License:
+## License
 
 GPLv3 unless otherwise noted
