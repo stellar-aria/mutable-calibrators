@@ -1,147 +1,71 @@
-#!/bin/python3
-from enum import Enum
-from typing import Tuple
-from time import sleep
-import sys
+#!/usr/bin/env python3
+"""Tides (2018) calibration (firmware: tides2/factory_test.cc)."""
 
-from mi_module import MIModule
+from enum import IntEnum
 
-
-class OutputChannel(Enum):
-    OUT_1 = 0
-    OUT_2 = 1
-    OUT_3 = 2
-    OUT_4 = 3
+import cli
+from cli import Step
+from mi_module import DacModule
 
 
-class Tides2(MIModule):
-    def calibrate_dac_channel(self, channel: OutputChannel) \
-            -> Tuple[float, float]:
-        super().calibrate_dac_channel(channel.value, 0)
-        minus_two_volt_reading = float(
-            input(f"Enter value on voltmeter for {
-                  channel.name} output (should be close to -2V): ")
-        )
+class Command(IntEnum):
+    READ_POT = 0
+    READ_CV = 1
+    READ_GATE = 2
+    GENERATE_TEST_SIGNALS = 3
+    CALIBRATE = 4
+    READ_NORMALIZATION = 5
+    FORCE_DAC_CODE = 6
+    WRITE_CALIBRATION_DATA_NIBBLE = 7
 
-        super().calibrate_dac_channel(channel.value, 1)
-        four_volt_reading = float(
-            input(f"Enter value on voltmeter for {
-                  channel.name} output (should be close to 4V): ")
-        )
-        # these DAC code values correspond to
-        # value set in file tides2/ui.cc,
-        # function HandleFactoryTestingRequest,
-        # case FACTORY_TESTING_FORCE_DAC_CODE
-        # and should result in voltages -2V and 4V.
-        code_4 = 0x416b
-        code_m2 = 0x9ff1
-        scale = (code_4 - code_m2) / \
-            (four_volt_reading - minus_two_volt_reading)
-        offset = code_m2 - minus_two_volt_reading * scale
 
-        guard = True
-        while guard:
-            self.port.write_calibration_data(scale / -0.125, offset)
+class Tides2(DacModule):
+    NAME = "Tides 2"
+    Command = Command
+    OUTPUTS = ("OUT 1", "OUT 2", "OUT 3", "OUT 4")
+    CODE_LOW = 0x9FF1   # ~ -2 V
+    CODE_HIGH = 0x416B  # ~ +4 V
 
-            # step = 2 forces the module to store written calibration data
-            # and set the output to 1V
-            sleep(0.1)
-            super().calibrate_dac_channel(channel.value, 2)
+    def clear_forced_outputs(self) -> None:
+        """GENERATE_TEST_SIGNALS clears every forced DAC code (the argument is
+        ignored); the outputs go back to the factory test waveforms."""
+        self.request(Command.GENERATE_TEST_SIGNALS, 0)
 
-            key = input(
-                "Value on voltmeter should read now 1V. Press y and ENTER to "
-                "confirm, any other key and ENTER to retry: ")
-            guard = (key != "y")
-        return (scale, offset)
+    def firmware_snippet(self, channel, scale, offset):
+        return (f"persistent_data_.dac_calibration[{channel}].scale = "
+                f"{scale:.4f}f; persistent_data_.dac_calibration[{channel}]"
+                f".offset = {offset:.4f}f;")
 
-    def calibrate_adc_channel(self):
-        # Steps: force -2V, force 4V, store settings
-        for step in range(3):
-            super().calibrate_adc_channel(0, step)
-            sleep(0.5)
 
-    def calibrate_dac(self):
-        try:
-            input("Press ENTER to start DAC calibration.")
-            super().generate_test_signals(True)
-            input("All outputs should have orange LEDs right now. "
-                  "Press ENTER to continue.")
-            data = []
-            for channel in list(OutputChannel):
-                data.append(self.calibrate_dac_channel(channel))
+# OUT 1 is driven to -2 V then +4 V and read back on V/OCT. Step 1 also
+# captures the zero of every other CV input, so those must be unpatched.
+ADC_STEPS = [
+    Step(0, "Patch OUT 1 to the V/OCT input and unpatch every other CV "
+            "input.", settle=False),
+    Step(1),
+    Step(2),
+]
 
-            print("DAC Calibrated!")
-            print(
-                "If any output does not read 1V right now, reflash and "
-                "rerun the calibration.")
-            print(
-                "For more accurate ADC calibration results, you can copy "
-                "the below code into Settings::Init() and rerun ADC "
-                "calibration"
-            )
-            for i, (scale, offset) in enumerate(data):
-                print(
-                    f"c.dac_scale[{i}] = {
-                        scale:.4f}f; c.dac_offset[{i}] = {offset:.4f}f;"
-                )
-        except IOError:
-            print("Error during communication. Check power and connection.")
-            exit(-1)
 
-    def calibrate_adc(self):
-        # Begin signal output
-        try:
-            input("Press ENTER to start ADC calibration.")
-            self.generate_test_signals()
+def calibrate_dac(m: Tides2):
+    cli.calibrate_dac(m, before=m.clear_forced_outputs)
 
-            print("All outputs should have orange LEDs right now. Please "
-                  "patch a cable from OUT_1 to V/oct input and leave "
-                  "all other CV inputs unpatched - then press ENTER")
-            input()
-            self.calibrate_adc_channel()
-        except IOError:
-            print("Error during communication. Check power and connection.")
-            exit(-1)
 
-        print("ADC Calibrated!")
+def calibrate_adc(m: Tides2):
+    print("\n== Tides 2 V/OCT calibration ==")
+    print("Uses OUT 1 as the reference, so run the DAC calibration first.")
+    if cli.run_calibration_steps(m, ADC_STEPS):
+        print("Done.")
 
-    def calibrate(self):
-        self.calibrate_dac()
-        self.calibrate_adc()
+
+def calibrate_all(m: Tides2):
+    calibrate_dac(m)
+    calibrate_adc(m)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        port = sys.argv[1]
-    else:
-        print("Enter port to connect on:")
-        port = input()
-
-    print(f"Connecting to Tides2 on port {port}...")
-
-    try:
-        tides = Tides2(port)
-    except Exception as e:
-        print(f"Unable to connect: {e}")
-        exit()
-
-    print("Success!")
-    print("Remember, only freshly flashed module can be calibrated using "
-          "this method (i.e., on its first powerup after flashing). "
-          "If at the beginning of any type of calibration LEDs do not turn "
-          "orange when specified, that may mean connection issues or "
-          "not freshly flashed unit.")
-    print("Choose calibration: ")
-    print("  a - ADC")
-    print("  d - DAC")
-    print("  m - both")
-    response = input(">>> ")
-    if response == "m":
-        tides.calibrate()
-    elif response == "a":
-        tides.calibrate_adc()
-    elif response == "d":
-        tides.calibrate_dac()
-    # else:
-    #     manual_prompt(port)
-    exit()
+    cli.main(Tides2, [
+        ("m", "calibrate DAC, then V/OCT input", calibrate_all),
+        ("d", "calibrate DAC (outputs) only", calibrate_dac),
+        ("a", "calibrate V/OCT input only", calibrate_adc),
+    ])

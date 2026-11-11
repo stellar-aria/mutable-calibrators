@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 '''
 A Python class implementing KBHIT, the standard keyboard-interrupt poller.
 Works transparently on Windows and Posix (Linux, Mac OS X).  Doesn't work
@@ -70,8 +70,6 @@ class KBHit:
             Should not be called in the same program as getarrow().
         '''
 
-        s = ''
-
         if os.name == 'nt':
             return msvcrt.getch().decode('utf-8')
 
@@ -97,7 +95,7 @@ class KBHit:
             c = sys.stdin.read(3)[2]
             vals = [65, 67, 66, 68]
 
-        return vals.index(ord(c.decode('utf-8')))
+        return vals.index(ord(c))
 
 
     def kbhit(self):
